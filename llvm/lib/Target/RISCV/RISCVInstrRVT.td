@@ -144,6 +144,67 @@ class RVTMacroElemwise<bits<6> op_v, bits<8> dtype_v, string asmstr>
   let Inst{6-0} = OPC_RVT64.Value;
 }
 
+class RVTMacroConvert<bits<8> dst_t, bits<8> src_t, string asmstr>
+  : RVInst64<(outs GPR:$rd), (ins GPR:$rs1, uimm3:$group),
+             asmstr, "", [], InstFormatOther> {
+  bits<5> rd;
+  bits<5> rs1;
+  bits<3> group;
+  let hasSideEffects = 1;
+  let mayLoad = 1;
+  let mayStore = 1;
+  let Inst{63-48} = 0;
+  let Inst{47-40} = dst_t;
+  let Inst{39-32} = src_t;
+  let Inst{31-25} = 0b0000001;
+  let Inst{24-20} = 0b00000;
+  let Inst{19-15} = rs1;
+  let Inst{14-12} = group;
+  let Inst{11-7} = rd;
+  let Inst{6-0} = OPC_RVT64.Value;
+}
+
+class RVTMacroSFU<bits<8> op_v, string asmstr>
+  : RVInst64<(outs GPR:$rd), (ins GPR:$rs1, uimm3:$group),
+             asmstr, "", [], InstFormatOther> {
+  bits<5> rd;
+  bits<5> rs1;
+  bits<3> group;
+  let hasSideEffects = 1;
+  let mayLoad = 1;
+  let mayStore = 1;
+  let Inst{63-48} = 0;
+  let Inst{47-40} = 0b00000000;
+  let Inst{39-32} = op_v;
+  let Inst{31-25} = 0b0000010;
+  let Inst{24-20} = 0b00000;
+  let Inst{19-15} = rs1;
+  let Inst{14-12} = group;
+  let Inst{11-7} = rd;
+  let Inst{6-0} = OPC_RVT64.Value;
+}
+
+class RVTMacroReduce<bits<6> op_v, bits<8> dtype_v, string asmstr>
+  : RVInst64<(outs GPR:$rd), (ins GPR:$rs1, uimm3:$group),
+             asmstr, "", [], InstFormatOther> {
+  bits<5> rd;
+  bits<5> rs1;
+  bits<3> group;
+  let hasSideEffects = 1;
+  let mayLoad = 1;
+  let mayStore = 1;
+  let Inst{63-48} = 0;
+  let Inst{47-46} = 0b00;
+  let Inst{45-40} = op_v;
+  let Inst{39-32} = dtype_v;
+  let Inst{31-25} = 0b0000010;
+  let Inst{24-20} = 0b00000;
+  let Inst{19-15} = rs1;
+  let Inst{14-12} = group;
+  let Inst{11-7} = rd;
+  let Inst{6-0} = OPC_RVT64.Value;
+}
+
 // -------------------------------
 // Phase-1 instruction definitions
 // -------------------------------
@@ -167,7 +228,10 @@ def RVT_MAT_SETPTR : RVTMATSetPtr<"tx.mat.setptr $rd, $rs1, $rs2, $group">;
 let hasSideEffects = 1, mayLoad = 0, mayStore = 0 in {
 def RVT_MACRO_ELEMWISE_ADD_S32 : RVTMacroElemwise<0b000000, 0x02,
   "tx.macro.elemwise.add.s32 $rd, $rs1, $rs2, $group">;
-def RVT_MACRO_CONVERT_S32_F32  : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>;
-def RVT_MACRO_SFU_EXP          : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>;
-def RVT_MACRO_REDUCE_ADD_S32   : Pseudo<(outs GPR:$rd), (ins GPR:$rs1), []>;
+def RVT_MACRO_CONVERT_S32_F32  : RVTMacroConvert<0x02, 0x12,
+  "tx.macro.convert.s32.f32 $rd, $rs1, $group">;
+def RVT_MACRO_SFU_EXP          : RVTMacroSFU<0x01,
+  "tx.macro.sfu.exp $rd, $rs1, $group">;
+def RVT_MACRO_REDUCE_ADD_S32   : RVTMacroReduce<0b000000, 0x02,
+  "tx.macro.reduce.add.s32 $rd, $rs1, $group">;
 }
