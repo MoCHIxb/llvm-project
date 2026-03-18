@@ -30,6 +30,71 @@ Consult the
 [Getting Started with LLVM](https://llvm.org/docs/GettingStarted.html#getting-the-source-code-and-building-llvm)
 page for information on building and running LLVM.
 
+## 本地 RVT 工作区说明（非上游内容）
+
+当前工作区将 `llvm-project` 与同级仓库 `llvm-compiler` 联动，用于 RVT 扩展开发与 Host-Device 联调验证。
+
+路径约定（统一定义）：
+
+- 工程根目录统一记为：`R_PROJECT_ROOT`
+- WSL/Linux 示例：`export R_PROJECT_ROOT=/mnt/e/r-project`
+- Windows 示例：`$env:R_PROJECT_ROOT='E:/r-project'`
+
+后续命令示例均以 `${R_PROJECT_ROOT}` 为根目录，远程部署时只需替换该变量。
+
+### RVT 扩展修改
+
+本地集成时，会将 RVT 实现同步到本仓以下文件：
+
+- `llvm/lib/Target/RISCV/RISCVInstrRVT.td`
+- `llvm/lib/Target/RISCV/AsmParser/RISCVAsmParserRVT.cpp`
+- `llvm/lib/Target/RISCV/AsmParser/CMakeLists.txt`（注册 parser 源文件）
+- `llvm/lib/Target/RISCV/RISCVInstrInfo.td`（包含 RVT 指令定义入口）
+
+同步脚本入口：
+
+```bash
+bash ${R_PROJECT_ROOT}/llvm-compiler/scripts/integrate-rvt-wsl.sh ${R_PROJECT_ROOT}/llvm-project
+```
+
+### 本地验证流程
+
+1. 在 `llvm-build` 中构建 `llvm-mc`、`llc`。
+2. 从 `llvm-compiler` 执行 MC 与 CodeGen 校验：
+
+```bash
+bash ${R_PROJECT_ROOT}/llvm-compiler/scripts/verify-rvt-mc-wsl.sh ${R_PROJECT_ROOT}/llvm-build
+bash ${R_PROJECT_ROOT}/llvm-compiler/scripts/verify-rvt-codegen-wsl.sh ${R_PROJECT_ROOT}/llvm-build
+```
+
+3. 执行 Gate E 端到端检查：
+
+```bash
+bash ${R_PROJECT_ROOT}/llvm-compiler/scripts/run-gate-e-wsl.sh
+SKIP_LAUNCH=0 AUTO_LAUNCH_BACKEND=1 NPU_RUNTIME_PRINTCHAR_STRICT=0 \
+  bash ${R_PROJECT_ROOT}/llvm-compiler/scripts/run-gate-e-wsl.sh
+```
+
+模式说明：
+
+- 本地 smoke 推荐 relaxed：`NPU_RUNTIME_PRINTCHAR_STRICT=0`
+- CI 门禁推荐 strict：`NPU_RUNTIME_PRINTCHAR_STRICT=1`（通过 `run-gate-e-ci-wsl.sh`）
+
+已知环境注意事项：
+
+- 当 `/dev/shm` 容量不足时，E4 后端可能启动失败。
+- 可执行以下命令扩容：
+
+```bash
+sudo mount -o remount,size=32G /dev/shm
+```
+
+状态快照（2026-03-18）：
+
+- RVT 的 MC 与 CodeGen 冒烟在本地工作区可通过。
+- Gate E 的 relaxed 主链路（E1/E2/E3/E4）可通过。
+- strict 路径对 printchar 回读与共享内存约束更敏感，属于预期门禁行为。
+
 For information on how to contribute to the LLVM project, please take a look at
 the [Contributing to LLVM](https://llvm.org/docs/Contributing.html) guide.
 
